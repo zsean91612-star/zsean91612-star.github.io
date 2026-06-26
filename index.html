@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台灣生態資料庫 · 入口</title>
+<style>
+  :root {
+    --bg: #0e1f16; --card: #162a1e; --card-border: #253d2c;
+    --accent: #4dba7f; --accent2: #2d7a5a;
+    --text: #e8f5ef; --muted: #7aab90; --divider: #253d2c; --tag: #1e3d2b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system,"Noto Sans TC",sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 2.5rem 1.2rem 4rem;
+  }
+  header { text-align: center; margin-bottom: 3rem; }
+  header .logo { font-size: 2.4rem; margin-bottom: .5rem; }
+  header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: .04em; }
+  header p { margin-top: .5rem; color: var(--muted); font-size: .9rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.4rem; max-width: 1060px; margin: 0 auto;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 14px; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .card:hover {
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 1px var(--accent2), 0 6px 24px rgba(0,0,0,.4);
+  }
+  .card-top { padding: 1.4rem 1.4rem .9rem; flex: 1; }
+  .card-icon { font-size: 2rem; margin-bottom: .7rem; }
+  .card-title { font-size: 1.15rem; font-weight: 700; color: var(--accent); margin-bottom: .2rem; }
+  .card-subtitle { font-size: .8rem; color: var(--muted); margin-bottom: .9rem; letter-spacing: .04em; }
+  .card-stat {
+    display: inline-block; background: var(--tag); color: var(--accent);
+    font-size: .82rem; font-weight: 600;
+    padding: .2rem .7rem; border-radius: 999px; border: 1px solid var(--accent2);
+  }
+  .card-divider { border: none; border-top: 1px solid var(--divider); margin: 1rem 0; }
+  .latest-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .55rem; }
+  .latest-row { display: flex; flex-direction: column; gap: .25rem; }
+  .latest-meta { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+  .meta-tag {
+    display: inline-flex; align-items: center; gap: .22rem;
+    background: var(--tag); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: .18rem .5rem; font-size: .78rem; color: var(--text);
+  }
+  .latest-text {
+    font-size: .8rem; color: var(--muted); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; margin-top: .3rem; font-style: italic;
+  }
+  .latest-link { margin-top: .5rem; font-size: .75rem; color: var(--muted); text-decoration: none; opacity: .7; display: block; }
+  .latest-link:hover { opacity: 1; color: var(--accent); }
+  .card-actions { padding: .9rem 1.4rem 1.2rem; display: flex; gap: .6rem; }
+  .btn {
+    display: inline-block; padding: .52rem 1.1rem; border-radius: 8px;
+    font-size: .85rem; font-weight: 600; text-decoration: none; transition: background .15s;
+  }
+  .btn-primary { background: var(--accent); color: #0a1a0f; flex: 1; text-align: center; }
+  .btn-primary:hover { background: #5fd495; }
+  .btn-secondary { background: var(--tag); color: var(--muted); border: 1px solid var(--card-border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+  footer { text-align: center; margin-top: 3rem; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🌿</div>
+  <h1>台灣生態社群資料庫</h1>
+  <p>從 Facebook 社團整理的野外觀察紀錄與物種圖鑑</p>
+</header>
+<div class="grid">
+
+  <div class="card">
+    <div class="card-top">
+      <div class="card-icon">🎵</div>
+      <div class="card-title">台灣蟬資料庫</div>
+      <div class="card-subtitle">Cicadidae in Taiwan · 台灣蟬保育學會</div>
+      <span class="card-stat">400 筆野外紀錄</span>
+      <hr class="card-divider">
+      <div class="latest-label">最新收錄文章</div>
+      <div class="latest-row">
+        <div class="latest-meta">
+          <span class="meta-tag">🗓 貼文日期：2026-06-22</span>
+          <span class="meta-tag">👤 Stella Kao</span>
+          <span class="meta-tag">🎵 陽明山暮蟬</span>
+        </div>
+        <div class="latest-text">2026/06/22陽明山
+請問是陽明山暮蟬嗎?</div>
+        <a class="latest-link" href="https://www.facebook.com/groups/498975763500965/posts/27136130556025457" target="_blank">↗ 查看原貼文</a>
+      </div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="https://zsean91612-star.github.io/cicada-db/" target="_blank">前往資料庫</a>
+      <a class="btn btn-secondary" href="https://zsean91612-star.github.io/cicada-db/species.html" target="_blank">物種圖鑑</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-top">
+      <div class="card-icon">🌾</div>
+      <div class="card-title">台灣竹節蟲資料庫</div>
+      <div class="card-subtitle">Phasmatodea in Taiwan · 台灣竹節蟲同好會</div>
+      <span class="card-stat">342 筆野外紀錄</span>
+      <hr class="card-divider">
+      <div class="latest-label">最新收錄文章</div>
+      <div class="latest-row">
+        <div class="latest-meta">
+          <span class="meta-tag">🗓 貼文日期：2026-06-08</span>
+          <span class="meta-tag">👤 湯興漢</span>
+          <span class="meta-tag">🌾 雙色皮竹節蟲</span>
+        </div>
+        <div class="latest-text">2026.06.08，新店二叭子植物園，請問這是雙色皮竹節蟲嗎？</div>
+        <a class="latest-link" href="https://www.facebook.com/groups/506259886194307/posts/3494489067371359" target="_blank">↗ 查看原貼文</a>
+      </div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="https://zsean91612-star.github.io/taiwan-stick-insect-db/" target="_blank">前往資料庫</a>
+      <a class="btn btn-secondary" href="https://zsean91612-star.github.io/taiwan-stick-insect-db/species.html" target="_blank">物種圖鑑</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-top">
+      <div class="card-icon">🦟</div>
+      <div class="card-title">台灣脈翅目資料庫</div>
+      <div class="card-subtitle">Neuropterida in Taiwan · 台灣脈翅總目貼圖討論區</div>
+      <span class="card-stat">894 筆野外紀錄</span>
+      <hr class="card-divider">
+      <div class="latest-label">最新收錄文章</div>
+      <div class="latest-row">
+        <div class="latest-meta">
+          <span class="meta-tag">🗓 貼文日期：2026-06-25</span>
+          <span class="meta-tag">👤 施禮正</span>
+          <span class="meta-tag">🦟 蟻蛉</span>
+        </div>
+        
+        <a class="latest-link" href="https://www.facebook.com/groups/483678968464848/posts/3590592781106769" target="_blank">↗ 查看原貼文</a>
+      </div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="https://zsean91612-star.github.io/neuroptera-db/" target="_blank">前往資料庫</a>
+      <a class="btn btn-secondary" href="https://zsean91612-star.github.io/neuroptera-db/species.html" target="_blank">物種圖鑑</a>
+    </div>
+  </div>
+</div>
+<footer>由 Facebook 社團觀察紀錄整理 · 蟲蟲工作室 · 最後更新 2026-06-26</footer>
+</body>
+</html>
