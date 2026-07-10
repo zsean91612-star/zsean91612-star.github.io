@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+"""
+生成 portal/index.html  —  三個生態資料庫入口首頁
+每次更新資料庫後執行一次即可更新卡片資訊。
+"""
+import sqlite3, json, re
+from pathlib import Path
+from datetime import datetime
+
+ROOT = Path(__file__).resolve().parent
+
+# ── 日期只從兩個可信來源取得 ─────────────────────────────────────────────────
+# 1. posts.timestamp 欄位（爬蟲存入的貼文發布時間）
+# 2. post_text 內明確寫出的日期字串（如「2026.06.08」）
+# 留言相對時間（「42週」）不可信，不使用。
+
+DATE_PAT = re.compile(r'(20\d{2})[./年\-](1[0-2]|0?[1-9])[./月\-](3[01]|[12]\d|0?[1-9])')
+DATE_NOISE = {'2023-11-07', '2023-11-08'}  # Messenger 洩漏假日期
+
+def text_date(txt: str) -> str | None:
+    if not txt:
+        return None
+    best = None
+    for m in DATE_PAT.finditer(txt):
+        y, mo, d = m.group(1), m.group(2).zfill(2), m.group(3).zfill(2)
+        dt = f"{y}-{mo}-{d}"
+        if dt in DATE_NOISE or dt < '2020-01-01':
+            continue
+        if best is None or dt > best:
+            best = dt
+    return best
+
+
+def get_latest(db_path: str, strategy: str = '') -> dict:
+    """
+    「最新文章」= timestamp 或 post_text 日期最大的那筆。
+    只用可信來源，不猜估。
+    """
+    db = sqlite3.connect(db_path)
+    db.row_factory = sqlite3.Row
+    rows = db.execute("""
+        SELECT p.post_url, p.timestamp,
+               COALESCE(NULLIF(d.author,''),p.author,'') AS author,
+               a.species_common, d.post_text
+        FROM ai_annotations a
+        JOIN post_details d ON d.post_id=a.post_id
+        JOIN posts p ON p.post_id=a.post_id
+        WHERE a.category='wild_taiwan' AND d.quality_status='complete'
+        AND a.species_common IS NOT NULL
+    """).fetchall()
+    db.close()
+
+    best = None
+    for r in rows:
+        ts = (r['timestamp'] or '')[:10]
+        dt = ts if ts >= '2020-01-01' else text_date(r['post_text'] or '')
+        if dt and (best is None or dt > best[0]):
+            best = (dt, r['author'], r['species_common'] or '（未知）',
+                    (r['post_text'] or '').strip()[:80], r['post_url'])
+
+    if best:
+        return {
+            'date':       best[0],
+            'date_label': '貼文日期',
+            'author':     best[1],
+            'species':    best[2],
+            'text':       best[3],
+            'url':        best[4],
+        }
+    return {'date': '—', 'date_label': '日期未記錄', 'author': '—', 'species': '—', 'text': '', 'url': '#'}
+
+
+def get_count(db_path: str) -> int:
+    db = sqlite3.connect(db_path)
+    n = db.execute("""
+        SELECT COUNT(*) FROM ai_annotations a
+        JOIN post_details d ON d.post_id=a.post_id
+        WHERE a.category='wild_taiwan' AND d.quality_status='complete'
+    """).fetchone()[0]
+    db.close()
+    return n
+
+
+# ── 資料收集 ─────────────────────────────────────────────────────────────────
+
+SITES = [
+    {
+        'icon':     '🎵',
+        'title':    '台灣蟬資料庫',
+        'subtitle': 'Cicadidae in Taiwan · 台灣蟬保育學會',
+        'db':       '/Users/mac/Desktop/Claude工作資料夾/蟬資料庫/data/posts.db',
+        'strategy': 'text_date',
+        'url':      'https://zsean91612-star.github.io/cicada-db/',
+        'url_sp':   'https://zsean91612-star.github.io/cicada-db/species.html',
+    },
+    {
+        'icon':     '🌾',
+        'title':    '台灣竹節蟲資料庫',
+        'subtitle': 'Phasmatodea in Taiwan · 台灣竹節蟲同好會',
+        'db':       '/Users/mac/Desktop/Claude工作資料夾/竹節蟲資料庫/data/posts.db',
+        'strategy': 'timestamp',
+        'url':      'https://zsean91612-star.github.io/taiwan-stick-insect-db/',
+        'url_sp':   'https://zsean91612-star.github.io/taiwan-stick-insect-db/species.html',
+    },
+    {
+        'icon':     '🦟',
+        'title':    '台灣脈翅目資料庫',
+        'subtitle': 'Neuropterida in Taiwan · 台灣脈翅總目貼圖討論區',
+        'db':       '/Users/mac/Desktop/Claude工作資料夾/脈翅目資料庫/data/posts.db',
+        'strategy': 'fetch_order',
+        'url':      'https://zsean91612-star.github.io/neuroptera-db/',
+        'url_sp':   'https://zsean91612-star.github.io/neuroptera-db/species.html',
+    },
+]
+
+cards_html = []
+for s in SITES:
+    count   = get_count(s['db'])
+    latest  = get_latest(s['db'], s['strategy'])
+    date_lbl = latest.get('date_label', '貼文日期')
+    date_val = latest.get('date', '—')
+    author   = latest.get('author', '—')
+    species  = latest.get('species', '—')
+    text     = latest.get('text', '')
+    fb_url   = latest.get('url', '#')
+
+    # Build preview text (clean up "XXX的貼文" noise)
+    if text and '的貼文' in text and len(text) < 10:
+        text = ''
+
+    date_meta  = f'<span class="meta-tag">🗓 {date_lbl}：{date_val}</span>' if date_val else ''
+    author_meta = f'<span class="meta-tag">👤 {author}</span>' if author else ''
+    species_meta = f'<span class="meta-tag">{s["icon"]} {species}</span>' if species else ''
+    text_html  = f'<div class="latest-text">{text}</div>' if text and '查看洞察報告' not in text and '的貼文' not in text else ''
+    fb_link    = f'<a class="latest-link" href="{fb_url}" target="_blank">↗ 查看原貼文</a>' if fb_url and fb_url != '#' else ''
+
+    cards_html.append(f"""
+  <div class="card">
+    <div class="card-top">
+      <div class="card-icon">{s['icon']}</div>
+      <div class="card-title">{s['title']}</div>
+      <div class="card-subtitle">{s['subtitle']}</div>
+      <span class="card-stat">{count} 筆野外紀錄</span>
+      <hr class="card-divider">
+      <div class="latest-label">最新收錄文章</div>
+      <div class="latest-row">
+        <div class="latest-meta">
+          {date_meta}
+          {author_meta}
+          {species_meta}
+        </div>
+        {text_html}
+        {fb_link}
+      </div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="{s['url']}" target="_blank">前往資料庫</a>
+      <a class="btn btn-secondary" href="{s['url_sp']}" target="_blank">物種圖鑑</a>
+    </div>
+  </div>""")
+
+# ── HTML 模板 ─────────────────────────────────────────────────────────────────
+updated = datetime.now().strftime('%Y-%m-%d')
+
+HTML = f"""<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台灣生態資料庫 · 入口</title>
+<style>
+  :root {{
+    --bg: #0e1f16; --card: #162a1e; --card-border: #253d2c;
+    --accent: #4dba7f; --accent2: #2d7a5a;
+    --text: #e8f5ef; --muted: #7aab90; --divider: #253d2c; --tag: #1e3d2b;
+  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: -apple-system,"Noto Sans TC",sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 2.5rem 1.2rem 4rem;
+  }}
+  header {{ text-align: center; margin-bottom: 3rem; }}
+  header .logo {{ font-size: 2.4rem; margin-bottom: .5rem; }}
+  header h1 {{ font-size: 1.6rem; font-weight: 700; letter-spacing: .04em; }}
+  header p {{ margin-top: .5rem; color: var(--muted); font-size: .9rem; }}
+  .grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.4rem; max-width: 1060px; margin: 0 auto;
+  }}
+  .card {{
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 14px; overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: border-color .2s, box-shadow .2s;
+  }}
+  .card:hover {{
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 1px var(--accent2), 0 6px 24px rgba(0,0,0,.4);
+  }}
+  .card-top {{ padding: 1.4rem 1.4rem .9rem; flex: 1; }}
+  .card-icon {{ font-size: 2rem; margin-bottom: .7rem; }}
+  .card-title {{ font-size: 1.15rem; font-weight: 700; color: var(--accent); margin-bottom: .2rem; }}
+  .card-subtitle {{ font-size: .8rem; color: var(--muted); margin-bottom: .9rem; letter-spacing: .04em; }}
+  .card-stat {{
+    display: inline-block; background: var(--tag); color: var(--accent);
+    font-size: .82rem; font-weight: 600;
+    padding: .2rem .7rem; border-radius: 999px; border: 1px solid var(--accent2);
+  }}
+  .card-divider {{ border: none; border-top: 1px solid var(--divider); margin: 1rem 0; }}
+  .latest-label {{ font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .55rem; }}
+  .latest-row {{ display: flex; flex-direction: column; gap: .25rem; }}
+  .latest-meta {{ display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }}
+  .meta-tag {{
+    display: inline-flex; align-items: center; gap: .22rem;
+    background: var(--tag); border: 1px solid var(--card-border);
+    border-radius: 6px; padding: .18rem .5rem; font-size: .78rem; color: var(--text);
+  }}
+  .latest-text {{
+    font-size: .8rem; color: var(--muted); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; margin-top: .3rem; font-style: italic;
+  }}
+  .latest-link {{ margin-top: .5rem; font-size: .75rem; color: var(--muted); text-decoration: none; opacity: .7; display: block; }}
+  .latest-link:hover {{ opacity: 1; color: var(--accent); }}
+  .card-actions {{ padding: .9rem 1.4rem 1.2rem; display: flex; gap: .6rem; }}
+  .btn {{
+    display: inline-block; padding: .52rem 1.1rem; border-radius: 8px;
+    font-size: .85rem; font-weight: 600; text-decoration: none; transition: background .15s;
+  }}
+  .btn-primary {{ background: var(--accent); color: #0a1a0f; flex: 1; text-align: center; }}
+  .btn-primary:hover {{ background: #5fd495; }}
+  .btn-secondary {{ background: var(--tag); color: var(--muted); border: 1px solid var(--card-border); }}
+  .btn-secondary:hover {{ color: var(--text); border-color: var(--muted); }}
+  footer {{ text-align: center; margin-top: 3rem; color: var(--muted); font-size: .8rem; }}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🌿</div>
+  <h1>台灣生態社群資料庫</h1>
+  <p>從 Facebook 社團整理的野外觀察紀錄與物種圖鑑</p>
+</header>
+<div class="grid">
+{"".join(cards_html)}
+</div>
+<footer>由 Facebook 社團觀察紀錄整理 · 蟲蟲工作室 · 最後更新 {updated}</footer>
+</body>
+</html>
+"""
+
+out = ROOT / "index.html"
+out.write_text(HTML, encoding="utf-8")
+print(f"✅ portal/index.html 已生成（{updated}）")
+for s in SITES:
+    count  = get_count(s['db'])
+    latest = get_latest(s['db'], s['strategy'])
+    print(f"  {s['title']}: {count} 筆 | {latest.get('date_label')} {latest.get('date')} | {latest.get('author')} | {latest.get('species')}")
+
+# ── Push to GitHub Pages ──────────────────────────────────────────────────────
+import subprocess, os
+
+PAT = os.environ.get("ZSEAN_PAT", "")
+if not PAT:
+    try:
+        import json as _json
+        _cfg = _json.loads(Path.home().joinpath(".claude.json").read_text())
+        PAT = (_cfg.get("env") or {}).get("ZSEAN_PAT", "")
+    except Exception:
+        pass
+
+if PAT:
+    REMOTE_AUTH = f"https://zsean91612-star:{PAT}@github.com/zsean91612-star/zsean91612-star.github.io.git"
+    REMOTE_CLEAN = "https://github.com/zsean91612-star/zsean91612-star.github.io.git"
+    subprocess.run(["git", "-C", str(ROOT), "remote", "set-url", "origin", REMOTE_AUTH], check=True)
+    subprocess.run(["git", "-C", str(ROOT), "add", "index.html"], check=True)
+    result = subprocess.run(["git", "-C", str(ROOT), "diff", "--cached", "--quiet"])
+    if result.returncode != 0:
+        subprocess.run(["git", "-C", str(ROOT), "commit", "-m", f"update: {updated}"], check=True)
+        subprocess.run(["git", "-C", str(ROOT), "push", "origin", "main"], check=True)
+        print("🚀 已推送至 zsean91612-star.github.io")
+    else:
+        print("ℹ️  無變更，略過推送")
+    subprocess.run(["git", "-C", str(ROOT), "remote", "set-url", "origin", REMOTE_CLEAN], check=True)
+else:
+    print("⚠️  未找到 ZSEAN_PAT，略過推送（可設定環境變數 ZSEAN_PAT）")
